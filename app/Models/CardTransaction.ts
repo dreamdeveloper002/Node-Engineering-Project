@@ -13,9 +13,6 @@ export default class CardTransaction extends BaseModel {
   public wallet_id: number
 
   @column()
-  public bank_name: string
-
-  @column()
   public amount: number
 
   @belongsTo(() => User)

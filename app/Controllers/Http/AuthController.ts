@@ -4,6 +4,7 @@ import Database from '@ioc:Adonis/Lucid/Database'
 import User from 'App/Models/User'
 import Wallet from 'App/Models/Wallet'
 
+
 export default class AuthController {
   public async signup ({ request, auth, response }: HttpContextContract) {
     const newUserSchema = schema.create({
