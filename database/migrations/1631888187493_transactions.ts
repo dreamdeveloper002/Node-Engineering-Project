@@ -6,10 +6,14 @@ export default class Transactions extends BaseSchema {
   public async up () {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
-
-      /**
-       * Uses timestamptz for PostgreSQL and DATETIME2 for MSSQL
-       */
+      table.enum('txn_type', ['Debit', 'Credit']).notNullable()
+      table.enum('purpose', ['Deposit', 'Transfer', 'Reversal']).notNullable()
+      table.decimal('amount').notNullable()
+      table.integer('wallet_id').references('id').inTable('wallets').notNullable().unique().onDelete('CASCADE')
+      table.uuid('reference').notNullable().unique()
+      table.decimal('balance_before').notNullable()
+      table.decimal('balance_after').notNullable()
+      table.json('metadata')
       table.timestamp('created_at', { useTz: true })
       table.timestamp('updated_at', { useTz: true })
     })

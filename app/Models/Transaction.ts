@@ -16,7 +16,7 @@ export default class Transaction extends BaseModel {
   public amount: number
 
   @column()
-  public account_id: number
+  public wallet_id: number
 
   @column()
   public reference: number
