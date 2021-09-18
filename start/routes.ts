@@ -25,3 +25,4 @@ Route.get('/', async () => {
 })
 
 Route.post('/signup', 'AuthController.signup')
+Route.post('/charge', 'TransactionsController.creditAccount')
