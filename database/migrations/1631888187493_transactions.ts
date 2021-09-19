@@ -7,7 +7,7 @@ export default class Transactions extends BaseSchema {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
       table.enum('txn_type', ['Debit', 'Credit']).notNullable()
-      table.enum('purpose', ['Deposit', 'Transfer', 'Reversal']).notNullable()
+      table.string('purpose').notNullable()
       table.decimal('amount').notNullable()
       table.integer('wallet_id').references('id').inTable('wallets').notNullable().unique().onDelete('CASCADE')
       table.uuid('reference').notNullable().unique()

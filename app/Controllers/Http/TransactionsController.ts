@@ -1,17 +1,15 @@
-import { Request } from '@adonisjs/http-server/build/standalone'
-import { types } from '@ioc:Adonis/Core/Helpers'
+/* eslint-disable @typescript-eslint/naming-convention */
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
-import { schema, rules } from '@ioc:Adonis/Core/Validator'
+import { schema } from '@ioc:Adonis/Core/Validator'
 import Database from '@ioc:Adonis/Lucid/Database'
-//import User from 'App/Models/User'
-import Wallet from 'App/Models/Wallet'
+import CardTransaction from 'App/Models/CardTransaction'
+import { v4 as uuidv4 } from 'uuid'
 import axios from 'axios'
-import lodash from 'lodash'
-
+import Help from 'App/Helpers/Helpers'
 
 export default class TransactionsController {
   public async creditAccount ({ request, auth, response }: HttpContextContract) {
-    const body = await request.validate({
+    const req = await request.validate({
       schema: schema.create({
         number: schema.string(),
         cvv: schema.string(),
@@ -30,52 +28,83 @@ export default class TransactionsController {
         'expiry_month.required': 'Enter your card expiry mont',
       },
     })
-  console.log(JSON.stringify(body.number))
-    
     const PAYSTACK_BASE_URL = 'https://api.paystack.co/charge'
-   
-    const number = JSON.stringify(body.number)
-    const cvv = JSON.stringify(body.cvv)
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const expiry_year = JSON.stringify(body.expiry_year)
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const expiry_month= JSON.stringify(body.expiry_month)
-    //const email = JSON.stringify(body.email)
-    //init transaction process
-    //const trx = await Database.beginGlobalTransaction()
-    const secret = 'sk_test_22e4b1e4915030c821ff7262726ac8491e15287c'
+    const number = JSON.stringify(req.number)
+    const cvv = JSON.stringify(req.cvv)
+    const expiry_year = JSON.stringify(req.expiry_year)
+    const expiry_month= JSON.stringify(req.expiry_month)
+    const amount = req.amount
+    const email = req.email
 
     try {
-
-     
       const charge = await axios.post(PAYSTACK_BASE_URL, {
         card: {
-          number: number,
-          cvv: cvv,
-          expiry_year : expiry_year,
-          expiry_month : expiry_month,
+          number,
+          cvv,
+          expiry_year,
+          expiry_month,
         },
-        email: body.email,
-        amount: body.amount,
+        email,
+        amount,
       }, {
         headers: {
-          Authorization: `Bearer ${secret}`,
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
           'Content-Type': 'application/json',
         },
       })
-      // const wallet = await Wallet.findBy('wallet_id', auth.user?.id)
 
-      // //check if user with mail already exist
-      // if(!wallet) {
-      //   return response.status(400).json({
-      //     success: false,
-      //     message: 'Account does not exist',
-      //   })
-      // }
+      const nextAction = Help.processInitialCardCharge(charge.data)
+      const last_response = nextAction.success ? nextAction.message : 'unsuccessful'
 
-      console.log(charge.data)
+      await CardTransaction.create({
+        external_reference: nextAction.data.reference,
+        amount,
+        wallet_id: 7,
+        last_response,
+      })
+
+      // init transaction process
+      // const trx = await Database.beginGlobalTransaction()
+      try {
+        if (nextAction.data.shouldCreditAccount) {
+          const creditResult = await Help.creditAccount({
+            amount,
+            userId: 7,
+            reference: uuidv4(),
+            metadata: {
+              external_reference: nextAction.data.reference,
+            },
+          })
+          if (!creditResult.success) {
+            return response.status(200).json({
+              success: false,
+              error: creditResult.error,
+            })
+          }
+          return response.status(200).json({
+            success: true,
+            message: 'Charge successful',
+          })
+        }
+
+        return response.status(200).json(nextAction)
+      } catch (error) {
+        return response.status(400).json({
+          success: false,
+          message: error.message,
+        })
+      }
     } catch (error) {
-      //  console.log(error)
+      if (error.response) {
+        return response.status(400).json({
+          status: 'error',
+          message: error.response.data,
+        })
+      }
+      return response.status(400).json({
+        status: 'error',
+        message: error.message,
+      })
     }
   }
 }

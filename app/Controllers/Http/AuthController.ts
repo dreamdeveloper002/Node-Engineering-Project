@@ -3,7 +3,7 @@ import { schema, rules } from '@ioc:Adonis/Core/Validator'
 import Database from '@ioc:Adonis/Lucid/Database'
 import User from 'App/Models/User'
 import Wallet from 'App/Models/Wallet'
-import Helpers from 'App/Helpers/helpers'
+
 
 export default class AuthController {
   public async signup ({ request, auth, response }: HttpContextContract) {
@@ -12,7 +12,7 @@ export default class AuthController {
       email: schema.string({}, [rules.email()]),
       password: schema.string({},[rules.minLength(8)]),
     })
-    Helpers.processInitialCardCharge()
+    
     //init transaction process
     const trx = await Database.beginGlobalTransaction()
 

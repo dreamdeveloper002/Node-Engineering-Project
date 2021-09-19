@@ -15,6 +15,9 @@ export default class CardTransaction extends BaseModel {
   @column()
   public amount: number
 
+  @column()
+  public last_response: string
+
   @belongsTo(() => User)
   public user: BelongsTo<typeof User>
 

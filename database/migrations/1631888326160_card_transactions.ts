@@ -9,6 +9,7 @@ export default class CardTransactions extends BaseSchema {
       table.decimal('amount').notNullable()
       table.integer('wallet_id').references('id').inTable('wallets').notNullable().unique().onDelete('CASCADE')
       table.integer('external_reference').notNullable().unique()
+      table.integer('last_response').notNullable()
       table.timestamp('created_at', { useTz: true })
       table.timestamp('updated_at', { useTz: true })
     })

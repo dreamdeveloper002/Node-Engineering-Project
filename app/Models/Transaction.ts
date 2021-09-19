@@ -10,7 +10,7 @@ export default class Transaction extends BaseModel {
   public txn_type: 'Debit' | 'Credit'
 
   @column()
-  public purpose: 'Deposit' | 'Transfer' | 'Reversal'
+  public purpose: string
 
   @column()
   public amount: number
