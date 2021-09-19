@@ -40,7 +40,7 @@ export default class Help {
 
       account.balance = Number(account.balance) + Number(amount)
 
-      account.save()
+      await account.save()
 
       await Transaction.create({
         txn_type: 'Credit',

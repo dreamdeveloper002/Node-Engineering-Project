@@ -9,7 +9,7 @@ export default class Transactions extends BaseSchema {
       table.enum('txn_type', ['Debit', 'Credit']).notNullable()
       table.string('purpose').notNullable()
       table.decimal('amount').notNullable()
-      table.integer('wallet_id').references('id').inTable('wallets').notNullable().unique().onDelete('CASCADE')
+      table.integer('wallet_id').notNullable().unique()
       table.uuid('reference').notNullable().unique()
       table.decimal('balance_before').notNullable()
       table.decimal('balance_after').notNullable()
