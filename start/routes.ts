@@ -8,3 +8,4 @@ Route.get('/', async () => {
 Route.post('/signup', 'AuthController.signup')
 Route.post('/charge', 'TransactionsController.creditAccount')
 Route.post('/submit_pin', 'TransactionsController.submitPin')
+Route.post('/debit', 'TransactionsController.transfer')

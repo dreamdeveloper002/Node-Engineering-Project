@@ -58,7 +58,7 @@ export default class Help {
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
-  static async debitAccount ({amount, userId, reference, metadata, trx }) {
+  static async debitAccount ({amount, userId, reference, purpose, metadata, trx }) {
     const account = await Wallet.findBy('id', userId)
 
     if (!account) {
@@ -82,13 +82,18 @@ export default class Help {
     await Transaction.create({
       txn_type: 'Credit',
       amount,
-      purpose : 'Card funding',
+      purpose,
       wallet_id: account.id,
       reference,
       metadata,
       balance_before: Number(account.balance),
       balance_after: Number(account.balance) - Number(amount),
     }, trx)
+
+    return {
+      success: true,
+      message: 'Debit successful',
+    }
   }
 }
 

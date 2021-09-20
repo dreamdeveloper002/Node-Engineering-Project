@@ -4,6 +4,7 @@ import Wallet from './Wallet'
 import Transaction from './Transaction'
 import CardTransaction from './CardTransaction'
 import Hash from '@ioc:Adonis/Core/Hash'
+import Beneficiary from './Beneficiary'
 
 export default class User extends BaseModel {
   @column({ isPrimary: true })
@@ -26,6 +27,9 @@ export default class User extends BaseModel {
 
   @hasMany(() => Transaction)
   public transaction: HasMany<typeof Transaction>
+
+  @hasMany(() => Beneficiary)
+  public beneficiary: HasMany<typeof Beneficiary>
 
   @hasMany(() => CardTransaction)
   public cardTransaction: HasMany<typeof CardTransaction>

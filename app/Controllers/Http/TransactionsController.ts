@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
-import { schema } from '@ioc:Adonis/Core/Validator'
+import { schema, rules } from '@ioc:Adonis/Core/Validator'
 import Database from '@ioc:Adonis/Lucid/Database'
 import CardTransaction from 'App/Models/CardTransaction'
 import { v4 as uuidv4 } from 'uuid'
 import axios from 'axios'
 import Help from 'App/Helpers/Helpers'
+import User from 'App/Models/User'
 
 export default class TransactionsController {
   public async creditAccount ({ request, auth, response }: HttpContextContract) {
@@ -281,7 +282,7 @@ export default class TransactionsController {
   public async transfer ({ request, auth, response }: HttpContextContract){
     const req = await request.validate({
       schema: schema.create({
-        recipient_email: schema.string(),
+        recipient_email: schema.string({}, [rules.email()]),
         amount: schema.string(),
       }),
 
@@ -293,6 +294,71 @@ export default class TransactionsController {
 
     const amount = req.amount
     const email = req.recipient_email
+
+    //init transaction process
+    const trx = await Database.beginGlobalTransaction()
+
+    try {
+      const recipientExist = await User.findBy('email', email)
+      //check if user with mail exist
+      if(!recipientExist) {
+        return response.status(400).json({
+          status: 'error',
+          message: `user with account email ${email} does not exist`,
+        })
+      }
+
+      const purpose = 'Transfer'
+      const userId = recipientExist?.id
+
+      if (userId === auth?.user?.id) {
+        return response.status(400).json({
+          status: 'error',
+          message: 'This transaction can only be perform between two separate account',
+        })
+      }
+
+      const transactionResult = await Promise.all([
+
+        await Help.creditAccount({
+          amount,
+          userId,
+          purpose,
+          reference: uuidv4(),
+          metadata: 1,
+          trx,
+        }),
+
+        await Help.debitAccount({
+          amount,
+          userId,
+          purpose,
+          reference: uuidv4(),
+          metadata: 1,
+          trx,
+        }),
+
+      ])
+
+      const isFailed = await transactionResult.filter((result) => !result.success)
+
+      if (isFailed.length) {
+        await trx.rollback()
+        // return transferResult;
+      }
+
+      await trx.commit()
+      return response.status(200).json({
+        success: true,
+        message: 'transfer successful',
+      })
+    } catch (error) {
+      await trx.rollback()
+      response.status(400).json({
+        success: false,
+        error: 'internal server error',
+      })
+    }
   }
 }
 
