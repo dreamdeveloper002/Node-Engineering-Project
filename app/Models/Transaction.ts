@@ -28,7 +28,7 @@ export default class Transaction extends BaseModel {
   public balance_after: number
 
   @column()
-  public metadata: JSON
+  public metadata: string
 
   @belongsTo(() => User)
   public user: BelongsTo<typeof User>

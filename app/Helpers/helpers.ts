@@ -27,41 +27,68 @@ export default class Help {
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
-  static async creditAccount ({ amount, reference, metadata, userId }) {
-    try {
-      const account = await Wallet.findBy('userId', userId)
+  static async creditAccount ({ amount, purpose, reference, metadata, userId, trx }) {
+    const account = await Wallet.findBy('user_id', userId)
 
-      if (!account) {
-        return {
-          success: false,
-          error: 'Account does not exist',
-        }
-      }
-
-      account.balance = Number(account.balance) + Number(amount)
-
-      await account.save()
-
-      await Transaction.create({
-        txn_type: 'Credit',
-        amount,
-        purpose : 'Card funding',
-        wallet_id: account.id,
-        reference,
-        metadata,
-        balance_before: Number(account.balance),
-        balance_after: Number(account.balance) + Number(amount),
-      })
-      return {
-        success: true,
-        message: 'Credit successful',
-      }
-    } catch (error) {
+    if (!account) {
       return {
         success: false,
-        message: error.message,
+        error: 'Account does not exist',
       }
     }
+
+    account.balance = Number(account.balance) + Number(amount)
+
+    await account.save()
+
+    await Transaction.create({
+      txn_type: 'Credit',
+      amount,
+      purpose,
+      wallet_id: account.id,
+      reference,
+      metadata,
+      balance_before: Number(account.balance),
+      balance_after: Number(account.balance) + Number(amount),
+    }, trx)
+    return {
+      success: true,
+      message: 'Credit successful',
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
+  static async debitAccount ({amount, userId, reference, metadata, trx }) {
+    const account = await Wallet.findBy('id', userId)
+
+    if (!account) {
+      return {
+        success: false,
+        error: 'Account does not exist',
+      }
+    }
+
+    if (Number(account.balance) < amount) {
+      return {
+        success: false,
+        error: 'Insufficient balance',
+      }
+    }
+
+    account.balance = Number(account.balance) - Number(amount)
+
+    await account.save()
+
+    await Transaction.create({
+      txn_type: 'Credit',
+      amount,
+      purpose : 'Card funding',
+      wallet_id: account.id,
+      reference,
+      metadata,
+      balance_before: Number(account.balance),
+      balance_after: Number(account.balance) - Number(amount),
+    }, trx)
   }
 }
 

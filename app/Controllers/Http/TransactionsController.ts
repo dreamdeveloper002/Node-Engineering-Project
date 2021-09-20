@@ -59,26 +59,27 @@ export default class TransactionsController {
       await CardTransaction.create({
         external_reference: nextAction.data.reference,
         amount,
-        wallet_id: 7,
+        wallet_id: 1,
         last_response,
       })
 
       // init transaction process
-      // const trx = await Database.beginGlobalTransaction()
+      const trx = await Database.beginGlobalTransaction()
       try {
         if (nextAction.data.shouldCreditAccount) {
+          const purpose = 'Card_funding'
           const creditResult = await Help.creditAccount({
             amount,
-            userId: 7,
+            userId: 1,
+            purpose,
             reference: uuidv4(),
-            metadata: {
-              external_reference: nextAction.data.reference,
-            },
+            metadata: nextAction.data.reference,
+            trx,
           })
           if (!creditResult.success) {
             return response.status(200).json({
               success: false,
-              error: creditResult.error,
+              error: 'Charge not success',
             })
           }
           return response.status(200).json({
@@ -86,9 +87,11 @@ export default class TransactionsController {
             message: 'Charge successful',
           })
         }
-
+        trx.commit()
+        console.log(nextAction)
         return response.status(200).json(nextAction)
       } catch (error) {
+        trx.rollback()
         return response.status(400).json({
           success: false,
           message: error.message,
@@ -107,4 +110,189 @@ export default class TransactionsController {
       })
     }
   }
+
+  public async submitPin ({ request, auth, response }: HttpContextContract) {
+    const req = await request.validate({
+      schema: schema.create({
+        reference: schema.string(),
+        pin: schema.string(),
+      }),
+
+      messages: {
+        'reference.required': 'Please transaction reference number',
+        'pin.required': 'Please provide a pin',
+      },
+    })
+
+    const pin = req.pin
+    const reference = req.reference
+
+    const PAYSTACK_BASE_URL = 'https://api.paystack.co/charge'
+
+    // init transaction process
+    const trx = await Database.beginGlobalTransaction()
+
+    try {
+      const cardTransaction = await CardTransaction.findBy('external_reference', reference)
+
+      if (!cardTransaction) {
+        return response.status(400).json({
+          success: false,
+          error: 'Transaction not found',
+        })
+      }
+      if (cardTransaction.last_response === 'success') {
+        return response.status(400).json({
+          success: false,
+          error: 'Transaction already succeeded',
+        })
+      }
+      const charge = await axios.post(`${PAYSTACK_BASE_URL}/submit_pin`, {
+        reference, pin,
+      }, {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      })
+      if (charge.data.data.status === 'success') {
+        cardTransaction.last_response = 'success'
+        await cardTransaction.save()
+        const purpose = 'Card_funding'
+        const creditResult = await Help.creditAccount({
+          amount: cardTransaction.amount,
+          userId: 1,
+          purpose,
+          reference: uuidv4(),
+          metadata: charge.data.data.reference,
+          trx,
+        })
+        if (!creditResult.success) {
+          return response.status(400).json({
+            success: false,
+            error: 'Charge not success',
+          })
+        }
+        return response.status(200).json({
+          success: true,
+          message: 'Charge successful',
+          shouldCreditAccount: true,
+        })
+      }
+      cardTransaction.last_response = charge.data.data.status
+      cardTransaction.save()
+      return response.status(200).json({
+        success: true,
+        message: charge.data.data.message,
+        data: {
+          shouldCreditAccount: false,
+          reference,
+        },
+      })
+    } catch (error) {
+      console.log(error)
+      return response.status(400).json(error.message)
+    }
+  }
+
+  public async submitOtp ({ request, auth, response }: HttpContextContract) {
+    const req = await request.validate({
+      schema: schema.create({
+        reference: schema.string(),
+        otp: schema.string(),
+      }),
+
+      messages: {
+        'reference.required': 'Please provide transaction reference number',
+        'pin.required': 'Please provide an otp code',
+      },
+    })
+
+    const otp = req.otp
+    const reference = req.reference
+
+    const PAYSTACK_BASE_URL = 'https://api.paystack.co/charge'
+
+    // init transaction process
+    const trx = await Database.beginGlobalTransaction()
+
+    try {
+      const cardTransaction = await CardTransaction.findBy('external_reference', reference)
+
+      if (!cardTransaction) {
+        return response.status(400).json({
+          success: false,
+          error: 'Transaction not found',
+        })
+      }
+      if (cardTransaction.last_response === 'success') {
+        return response.status(400).json({
+          success: false,
+          error: 'Transaction already succeeded',
+        })
+      }
+      const charge = await axios.post(`${PAYSTACK_BASE_URL}/submit_pin`, {
+        reference, otp,
+      }, {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      })
+
+      const purpose = 'Card_funding'
+      if (charge.data.data.status === 'success') {
+        cardTransaction.last_response = 'success'
+        await cardTransaction.save()
+        const creditResult = await Help.creditAccount({
+          amount: cardTransaction.amount,
+          userId: 1,
+          purpose,
+          reference: uuidv4(),
+          metadata: charge.data.data.reference,
+          trx,
+        })
+        if (!creditResult.success) {
+          return response.status(400).json({
+            success: false,
+            error: 'Charge not success',
+          })
+        }
+        return response.status(200).json({
+          success: true,
+          message: 'Charge successful',
+          shouldCreditAccount: true,
+        })
+      }
+      cardTransaction.last_response = charge.data.data.status
+      cardTransaction.save()
+      return response.status(200).json({
+        success: true,
+        message: charge.data.data.message,
+        data: {
+          shouldCreditAccount: false,
+          reference,
+        },
+      })
+    } catch (error) {
+      console.log(error)
+      return response.status(400).json(error.response ? error.response.data : error || error.message)
+    }
+  }
+
+  public async transfer ({ request, auth, response }: HttpContextContract){
+    const req = await request.validate({
+      schema: schema.create({
+        recipient_email: schema.string(),
+        amount: schema.string(),
+      }),
+
+      messages: {
+        'recipient_email.required': 'Please recipient email',
+        'amount.required': 'Please provide the amount',
+      },
+    })
+
+    const amount = req.amount
+    const email = req.recipient_email
+  }
 }
+

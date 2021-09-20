@@ -4,7 +4,6 @@ import Database from '@ioc:Adonis/Lucid/Database'
 import User from 'App/Models/User'
 import Wallet from 'App/Models/Wallet'
 
-
 export default class AuthController {
   public async signup ({ request, auth, response }: HttpContextContract) {
     const newUserSchema = schema.create({
@@ -12,7 +11,7 @@ export default class AuthController {
       email: schema.string({}, [rules.email()]),
       password: schema.string({},[rules.minLength(8)]),
     })
-    
+
     //init transaction process
     const trx = await Database.beginGlobalTransaction()
 
@@ -48,7 +47,7 @@ export default class AuthController {
       }, trx)
 
       //Create wallet for newly registered user with initial balance
-      const wallet = await Wallet.create({ balance: 5000000, userId: createUser.id }, trx)
+      const wallet = await Wallet.create({ balance: 5000, userId: createUser.id }, trx)
 
       //Generate token for newly created user
       const token = await auth.use('api').login(createUser, {

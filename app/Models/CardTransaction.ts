@@ -7,7 +7,7 @@ export default class CardTransaction extends BaseModel {
   public id: number
 
   @column()
-  public external_reference: number
+  public external_reference: string
 
   @column()
   public wallet_id: number
@@ -27,3 +27,14 @@ export default class CardTransaction extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   public updatedAt: DateTime
 }
+
+
+// {
+//   "email": "bbnaija20254445563@gmail.com",
+//   "cvv": "408",
+//   "number" : "4084084084084081",
+//   "expiry_year":"22",
+//   "expiry_month":"01",
+//   "amount": 10000
+
+// }
