@@ -56,8 +56,6 @@ export default class TransactionsController {
         },
       })
 
-      console.log(charge.data)
-
       const nextAction = Help.processInitialCardCharge(charge.data)
       const last_response = nextAction.success ? nextAction.message : 'unsuccessful'
 
@@ -162,7 +160,6 @@ export default class TransactionsController {
         },
       })
 
-      console.log(charge.data)
       if (charge.data.data.status === 'success') {
         cardTransaction.last_response = 'success'
         await cardTransaction.save()
@@ -190,11 +187,12 @@ export default class TransactionsController {
       cardTransaction.last_response = charge.data.data.status
       cardTransaction.save()
       return response.status(200).json({
-        success: true,
-        message: charge.data.data.message,
+        status: charge.data.status,
+        message: charge.data.message,
         data: {
           shouldCreditAccount: false,
-          reference,
+          status: charge.data.data.status,
+          reference: charge.data.data.reference,
         },
       })
     } catch (error) {
@@ -247,19 +245,19 @@ export default class TransactionsController {
         },
       })
 
-      console.log(charge)
       const purpose = 'Card_funding'
       if (charge.data.data.status === 'success') {
         cardTransaction.last_response = 'success'
         await cardTransaction.save()
         const creditResult = await Help.creditAccount({
           amount: cardTransaction.amount,
-          userId: 1,
+          userId: auth.user?.id,
           purpose,
           reference: uuidv4(),
           metadata: charge.data.data.reference,
           trx,
         })
+
         if (!creditResult.success) {
           return response.status(400).json({
             success: false,
@@ -283,7 +281,6 @@ export default class TransactionsController {
         },
       })
     } catch (error) {
-      console.log(error)
       return response.status(400).json(error.response ? error.response.data : error || error.message)
     }
   }
@@ -329,21 +326,21 @@ export default class TransactionsController {
 
       const transactionResult = await Promise.all([
 
-        await Help.creditAccount({
+        Help.creditAccount({
           amount,
           userId,
           purpose,
           reference: uuidv4(),
-          metadata: 1,
+          metadata: auth?.user?.id,
           trx,
         }),
 
-        await Help.debitAccount({
+        Help.debitAccount({
           amount,
-          userId,
+          userId: auth?.user?.id,
           purpose,
           reference: uuidv4(),
-          metadata: 1,
+          metadata: auth?.user?.id,
           trx,
         }),
 
@@ -353,7 +350,7 @@ export default class TransactionsController {
 
       if (isFailed.length) {
         await trx.rollback()
-        // return transferResult;
+        return response.status(400).json(transactionResult)
       }
 
       await trx.commit()
@@ -365,7 +362,7 @@ export default class TransactionsController {
       await trx.rollback()
       response.status(400).json({
         success: false,
-        error: 'internal server error',
+        error: 'Transfer unsuccessful',
       })
     }
   }
@@ -373,7 +370,7 @@ export default class TransactionsController {
   public async beneficiary ({ request, auth, response }: HttpContextContract) {
     const req = await request.validate({
       schema: schema.create({
-        beneficiary_name: schema.string(),
+        beneficiary_bank_code: schema.string(),
       }),
 
       messages: {
@@ -381,23 +378,23 @@ export default class TransactionsController {
       },
     })
 
-    const beneficiary_name = req.beneficiary_name
+    const beneficiary_bank_code = req.beneficiary_bank_code
     const userId = auth?.user?.id
 
     try {
       await Beneficiary.create({
-        beneficiary_name,
+        beneficiary_bank_code,
         userId,
       })
 
       response.status(200).json({
         success: true,
-        error: 'Beneficiary successfully added',
+        message: 'Beneficiary successfully added',
       })
     } catch (error) {
       response.status(400).json({
-        success: true,
-        error: 'Internal server error',
+        success: false,
+        error: 'Beneficiary unsuccessful',
       })
     }
   }
@@ -409,7 +406,6 @@ export default class TransactionsController {
         name: schema.string(),
         account_number: schema.string(),
         bank_code: schema.string(),
-        amount: schema.string(),
       }),
 
       messages: {
@@ -417,10 +413,8 @@ export default class TransactionsController {
         'name.required': 'Name is required',
         'account_number.required': 'Please provide recipient account number',
         'bank_code.required': 'Please provide a valid bank code',
-        'amount.required': 'Please provide the amount',
       },
     })
-
     const name = JSON.stringify(req.name)
     const account_number = req.account_number
     const bank_code = req.bank_code
@@ -430,8 +424,14 @@ export default class TransactionsController {
 
     try {
       //**check beneficiary */
-      //const isBeneficiary = await Beneficiary.findByOrFail('userId', auth.user?.id)
+      const isBeneficiary = await Beneficiary.findBy('beneficiary_bank_code', req.bank_code)
 
+      if(!isBeneficiary) {
+        return response.status(400).json({
+          status: false,
+          message: 'Bank is not part of beneficiary',
+        })
+      }
       const charge = await axios.post(PAYSTACK_BASE_URL, {
         form: {
           type: 'nuban',
@@ -447,8 +447,6 @@ export default class TransactionsController {
           'Content-Type': 'application/json',
         },
       })
-
-      console.log(charge.data)
 
       response.status(200).json({
         success: charge.data.status,

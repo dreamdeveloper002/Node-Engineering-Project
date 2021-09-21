@@ -38,7 +38,7 @@ export default class Help {
     }
 
     account.balance = Number(account.balance) + Number(amount)
-
+    // console.log(account)
     await account.save()
 
     await Transaction.create({
@@ -51,6 +51,8 @@ export default class Help {
       balance_before: Number(account.balance),
       balance_after: Number(account.balance) + Number(amount),
     }, trx)
+
+    trx.commit()
     return {
       success: true,
       message: 'Credit successful',
@@ -60,7 +62,6 @@ export default class Help {
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
   static async debitAccount ({amount, userId, reference, purpose, metadata, trx }) {
     const account = await Wallet.findBy('id', userId)
-
     if (!account) {
       return {
         success: false,
@@ -80,7 +81,7 @@ export default class Help {
     await account.save()
 
     await Transaction.create({
-      txn_type: 'Credit',
+      txn_type: 'Debit',
       amount,
       purpose,
       wallet_id: account.id,
@@ -89,6 +90,8 @@ export default class Help {
       balance_before: Number(account.balance),
       balance_after: Number(account.balance) - Number(amount),
     }, trx)
+
+    trx.commit()
 
     return {
       success: true,
