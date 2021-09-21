@@ -7,7 +7,7 @@ export default class Beneficiary extends BaseModel {
   public id: number
 
   @column()
-  public beneficiary_name: string
+  public beneficiary_bank_code: string
 
   @column()
   public userId: number

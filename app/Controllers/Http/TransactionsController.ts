@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid'
 import axios from 'axios'
 import Help from 'App/Helpers/Helpers'
 import User from 'App/Models/User'
+import Beneficiary from 'App/Models/Beneficiary'
+import Wallet from 'App/Models/Wallet'
 
 export default class TransactionsController {
   public async creditAccount ({ request, auth, response }: HttpContextContract) {
@@ -54,13 +56,17 @@ export default class TransactionsController {
         },
       })
 
+      console.log(charge.data)
+
       const nextAction = Help.processInitialCardCharge(charge.data)
       const last_response = nextAction.success ? nextAction.message : 'unsuccessful'
+
+      const wallet = await Wallet.findBy('user_id', auth.user?.id)
 
       await CardTransaction.create({
         external_reference: nextAction.data.reference,
         amount,
-        wallet_id: 1,
+        wallet_id: wallet?.id,
         last_response,
       })
 
@@ -71,7 +77,7 @@ export default class TransactionsController {
           const purpose = 'Card_funding'
           const creditResult = await Help.creditAccount({
             amount,
-            userId: 1,
+            userId: auth.user?.id,
             purpose,
             reference: uuidv4(),
             metadata: nextAction.data.reference,
@@ -89,7 +95,7 @@ export default class TransactionsController {
           })
         }
         trx.commit()
-        console.log(nextAction)
+
         return response.status(200).json(nextAction)
       } catch (error) {
         trx.rollback()
@@ -155,13 +161,15 @@ export default class TransactionsController {
           Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
         },
       })
+
+      console.log(charge.data)
       if (charge.data.data.status === 'success') {
         cardTransaction.last_response = 'success'
         await cardTransaction.save()
         const purpose = 'Card_funding'
         const creditResult = await Help.creditAccount({
           amount: cardTransaction.amount,
-          userId: 1,
+          userId: auth.user?.id,
           purpose,
           reference: uuidv4(),
           metadata: charge.data.data.reference,
@@ -190,8 +198,7 @@ export default class TransactionsController {
         },
       })
     } catch (error) {
-      console.log(error)
-      return response.status(400).json(error.message)
+      return response.status(400).json(error.response.data)
     }
   }
 
@@ -231,14 +238,16 @@ export default class TransactionsController {
           error: 'Transaction already succeeded',
         })
       }
-      const charge = await axios.post(`${PAYSTACK_BASE_URL}/submit_pin`, {
-        reference, otp,
+      const charge = await axios.post(`${PAYSTACK_BASE_URL}/submit_otp`, {
+        reference,
+        otp,
       }, {
         headers: {
           Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
         },
       })
 
+      console.log(charge)
       const purpose = 'Card_funding'
       if (charge.data.data.status === 'success') {
         cardTransaction.last_response = 'success'
@@ -359,6 +368,107 @@ export default class TransactionsController {
         error: 'internal server error',
       })
     }
+  }
+
+  public async beneficiary ({ request, auth, response }: HttpContextContract) {
+    const req = await request.validate({
+      schema: schema.create({
+        beneficiary_name: schema.string(),
+      }),
+
+      messages: {
+        'beneficiary_name.required': 'Please provide beneficiary_name',
+      },
+    })
+
+    const beneficiary_name = req.beneficiary_name
+    const userId = auth?.user?.id
+
+    try {
+      await Beneficiary.create({
+        beneficiary_name,
+        userId,
+      })
+
+      response.status(200).json({
+        success: true,
+        error: 'Beneficiary successfully added',
+      })
+    } catch (error) {
+      response.status(400).json({
+        success: true,
+        error: 'Internal server error',
+      })
+    }
+  }
+
+  public async createTransferRecipient ({ request, auth, response }: HttpContextContract){
+    const req = await request.validate({
+      schema: schema.create({
+        description: schema.string(),
+        name: schema.string(),
+        account_number: schema.string(),
+        bank_code: schema.string(),
+        amount: schema.string(),
+      }),
+
+      messages: {
+        'description.required': 'Please provide a description',
+        'name.required': 'Name is required',
+        'account_number.required': 'Please provide recipient account number',
+        'bank_code.required': 'Please provide a valid bank code',
+        'amount.required': 'Please provide the amount',
+      },
+    })
+
+    const name = JSON.stringify(req.name)
+    const account_number = req.account_number
+    const bank_code = req.bank_code
+    const description= JSON.stringify(req.description)
+
+    const PAYSTACK_BASE_URL = 'https://api.paystack.co/transferrecipient'
+
+    try {
+      //**check beneficiary */
+      //const isBeneficiary = await Beneficiary.findByOrFail('userId', auth.user?.id)
+
+      const charge = await axios.post(PAYSTACK_BASE_URL, {
+        form: {
+          type: 'nuban',
+          name,
+          description,
+          currency: 'NGN',
+        },
+        account_number,
+        bank_code,
+      }, {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      console.log(charge.data)
+
+      response.status(200).json({
+        success: charge.data.status,
+        status: charge.data.message,
+        data: {
+          recipient_code: charge.data.data.recipient_code,
+          account_name: charge.data.data.details.account_name,
+          bank_code: charge.data.data.details.bank_code,
+          bank_name: charge.data.data.details.bank_name,
+        },
+      })
+    } catch (error) {
+      response.status(400).json(error.response.data)
+    }
+  }
+
+  public async webHookUrl ({ request, auth, response }: HttpContextContract){
+    const data = request.body()
+
+    response.status(200).json({ data })
   }
 }
 
