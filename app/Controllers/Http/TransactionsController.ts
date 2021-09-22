@@ -273,6 +273,93 @@ export default class TransactionsController {
       cardTransaction.last_response = charge.data.data.status
       cardTransaction.save()
       return response.status(200).json({
+        status: charge.data.status,
+        message: charge.data.message,
+        data: {
+          shouldCreditAccount: false,
+          status: charge.data.data.status,
+          reference: charge.data.data.reference,
+        },
+      })
+    } catch (error) {
+      return response.status(400).json(error.response ? error.response.data : error || error.message)
+    }
+  }
+
+  public async submitPhone ({ request, auth, response }: HttpContextContract) {
+    const req = await request.validate({
+      schema: schema.create({
+        reference: schema.string(),
+        phone_number: schema.string(),
+      }),
+
+      messages: {
+        'reference.required': 'Please provide transaction reference number',
+        'pin.required': 'Please provide an otp code',
+      },
+    })
+
+    const phone = req.phone_number
+    const reference = req.reference
+
+    const PAYSTACK_BASE_URL = 'https://api.paystack.co/charge'
+
+    // init transaction process
+    const trx = await Database.beginGlobalTransaction()
+
+    try {
+      const cardTransaction = await CardTransaction.findBy('external_reference', reference)
+
+      if (!cardTransaction) {
+        return response.status(400).json({
+          success: false,
+          error: 'Transaction not found',
+        })
+      }
+
+      if (cardTransaction.last_response === 'success') {
+        return response.status(400).json({
+          success: false,
+          error: 'Transaction already succeeded',
+        })
+      }
+      const charge = await axios.post(`${PAYSTACK_BASE_URL}/submit_phone`, {
+        reference,
+        phone,
+      }, {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      })
+
+      const purpose = 'Card_funding'
+      if (charge.data.data.status === 'success') {
+        cardTransaction.last_response = 'success'
+        await cardTransaction.save()
+        const creditResult = await Help.creditAccount({
+          amount: cardTransaction.amount,
+          userId: auth.user?.id,
+          purpose,
+          reference: uuidv4(),
+          metadata: charge.data.data.reference,
+          trx,
+        })
+
+        if (!creditResult.success) {
+          return response.status(400).json({
+            success: false,
+            error: 'Charge not success',
+          })
+        }
+        return response.status(200).json({
+          success: true,
+          message: 'Charge successful',
+          shouldCreditAccount: true,
+        })
+      }
+      cardTransaction.last_response = charge.data.data.status
+      cardTransaction.save()
+      return response.status(200).json({
         success: true,
         message: charge.data.data.message,
         data: {
@@ -465,8 +552,7 @@ export default class TransactionsController {
 
   public async webHookUrl ({ request, auth, response }: HttpContextContract){
     const data = request.body()
-
-    response.status(200).json({ data })
+    response.status(200).json({data})
   }
 }
 

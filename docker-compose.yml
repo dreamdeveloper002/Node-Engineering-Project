@@ -1,0 +1,43 @@
+version: "3.2"
+
+services:
+  docker-adonis-api:
+    image: docker-adonis-api
+    container_name: docker-adonis-api
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c 'while !</dev/tcp/db/4000; do sleep 1; done; npm start'  
+    volumes:
+      - .:/home/node/app
+      - /home/node/app/node_modules
+    ports:
+      - "3333:3333"
+    networks:
+      - app-network
+    depends_on:
+      - adonis-mysql
+  adonis-mysql:
+    image: mysql:8.0
+    restart: always
+    container_name: adonis-mysql
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "tcp://localhost:3306/health"]
+      interval: 300s
+      timeout: 400s
+      retries: 10
+    ports:
+      - 4000:3306
+    expose:
+      - "4000"
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_USER}"
+    volumes:
+      - my-datavolume:/var/lib/mysql
+networks:
+  app-network:
+    driver: bridge
+volumes:
+  my-datavolume:
