@@ -27,7 +27,7 @@ You will be building a basic fin tech  API with the following User stories.
 ## Challenges
 
 - I faced some issues working with paystack transfer endpoins, from my findings online, i need to have a registered bussiness to use this endpoint and i am getting a status code 400, hence i was able to `create transfer recipient` endpoint
-- I wasn't able to expose my endpoints on heroku, i need to add a credit card to use an instance of ClearDBMySQL as add-ons, and heroku is some how having issues validating my credit cards
+- I wasn't able to expose my endpoints on heroku, i need to add a credit card to use an instance of `ClearDBMySQL` as add-ons, and heroku is some how having issues validating my credit cards
 
 
 
