@@ -7,8 +7,7 @@ services:
     restart: unless-stopped
     build:
       context: .
-      dockerfile: Dockerfile
-    command: bash -c 'while !</dev/tcp/db/4000; do sleep 1; done; npm start'  
+      dockerfile: Dockerfile  
     volumes:
       - .:/home/node/app
       - /home/node/app/node_modules
@@ -28,9 +27,9 @@ services:
       timeout: 400s
       retries: 10
     ports:
-      - 4000:3306
+      - 3306:3306
     expose:
-      - "4000"
+      - "3306"
     environment:
       MYSQL_ROOT_PASSWORD: "${MYSQL_PASSWORD}"
       MYSQL_DATABASE: "${MYSQL_USER}"
