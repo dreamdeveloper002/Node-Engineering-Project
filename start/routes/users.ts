@@ -13,4 +13,4 @@ Route.group(() => {
   Route.post('/beneficiary', 'TransactionsController.beneficiary').middleware('auth')
   Route.post('/transfer', 'TransactionsController.createTransferRecipient').middleware('auth')
   Route.post('/webhook/url', 'TransactionsController.webHookUrl')
-})
+}).prefix('/api/v1')
