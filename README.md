@@ -69,9 +69,10 @@ You can check the Node.js and npm versions by running the following commands.
 | :------------- | :----------: | -----------: | -----------: |
 |  POST | Create user   | /api/v1/auth/signup    | *   |
 | POST   | signin user | /api/v1/auth/signin | * |
+|  POST | credit   | /api/v1/credit    | client   |
 |  POST | submit PIN   | /api/v1/submit_pin    | client   |
 |  POST | submit OTP   | /api/v1/submit_otp/    | client   |
-|  POST | submit PHONE   | /api/v1/ubmit_phone/    | client   |
+|  POST | submit PHONE   | /api/v1/submit_phone/    | client   |
 |  POST | transfer   | /api/v1/debit/    | client   |
 |  POST | add beneficiary  | /api/v1/beneficiary/    | client   |
 |  POST | create transfer recipient  | /api/v1/transfer/    | client   |
