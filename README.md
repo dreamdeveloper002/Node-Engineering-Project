@@ -43,7 +43,7 @@ You can check the Node.js and npm versions by running the following commands.
 `node -v`
 
 ### check npm version
-`node -v`
+`npm -v`
 
 ## Installation
 
