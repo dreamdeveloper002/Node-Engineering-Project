@@ -1,7 +1,7 @@
 ## Node-Engineering-Project
 ## Aim
 
-This test aims at checking the following in your implementation:
+This Project aims at checking the following in your implementation:
 
 - Integrating third-party APIs
 - MySQL efficiency, migrations etc
@@ -15,7 +15,7 @@ This test aims at checking the following in your implementation:
 
 ## Instructions and Integrations
 
-You will be building a basic fin tech  API with the following User stories.
+I will be building a basic fin tech  API with the following User stories.
 
 - User can create an account(Basic Information- email, name, password)
 - User can fund their Account with Card or Bank Transfer.
@@ -23,12 +23,6 @@ You will be building a basic fin tech  API with the following User stories.
 - User can add beneficiaries (bank to withdraw to).
 - User can only withdraw money to their Beneficiaries.
 - Use webhook only to confirm if transfer or funding is successful (checkout Ngrok to help out).
-
-## Challenges
-
-- I faced some issues working with paystack transfer endpoins, from my findings online, i need to have a registered bussiness to use this endpoint and i am getting a status code 400, hence i was able to `create transfer recipient` endpoint
-- I wasn't able to expose my endpoints on heroku, i need to add a credit card to use an instance of `ClearDBMySQL` as add-ons, and heroku is some how having issues validating my credit cards
-
 
 
 ## Getting Started
